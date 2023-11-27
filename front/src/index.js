@@ -1,5 +1,6 @@
 import React, { Component } from "react";
 import ReactDOM from "react-dom";
+//import GiftImg from './gift.svg';
 
 var handle = null;
 
@@ -28,10 +29,7 @@ const NameButton = (name, clickable) => {
         "button",
         {
             onClick: onClick,
-            style: {
-	        maxWidth: "100px",
-	        width: "100px",
-            }
+            className: (clickable ? "clickableNameButton" : "unclickableNameButton")
         },
         name
     );
@@ -48,7 +46,10 @@ const NameButtons = (state) => {
         {},
         React.createElement(
             "h1",
-            { font: "arial" },
+            {
+                font: "arial",
+                className: "titleHeader",
+            },
             "Who are you?"),
         ...buttons
     )];
@@ -60,7 +61,11 @@ const ReadyUsers = (state) => {
         return [];
     }
     let lines = ready.map(name => React.createElement(
-        "h1", {}, `${name} is ready!`
+        "h2",
+        {
+            className: "personReady",
+        },
+        `${name} is ready!`
     ));
     return [React.createElement(
         "div",
@@ -75,12 +80,28 @@ const GiftAssignments = (state) => {
         return [];
     }
     let lines = giftAssignments.map(name => React.createElement(
-            "h1", {}, name
+        "h2",
+        {
+            className: "giftAssignment",
+        },
+        React.createElement(
+            "img",
+            {
+                src: "./gift.svg",//GiftImg,
+            },
+        ),
+        name,
     ));
     return [React.createElement(
         "div",
         {},
-        React.createElement("h1", {}, "Your Secret Santa assignments are:"),
+        React.createElement(
+            "h1",
+            {
+                className: "titleHeader",
+            },
+            "Your Secret Santa assignments are:"
+        ),
         ...lines
     )];
 };

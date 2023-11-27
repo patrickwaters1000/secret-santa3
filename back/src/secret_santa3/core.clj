@@ -1,12 +1,18 @@
 (ns secret-santa3.core
   (:require
     [cheshire.core :as json]
+    [clojure.java.io :as io]
     [clojure.set :refer [subset? intersection]]
     [clojure.string :as string]
     [compojure.core :refer :all]
     [org.httpkit.server :refer [run-server]]
-    [ring.middleware.params :as rmp])
+    [ring.middleware.params :as rmp]
+    [ring.util.response :as response])
   (:gen-class))
+
+;; Refreshing the page after clicking that you are ready lets you claim to be
+;; two people. One person sees their gift assignments and the other sees both
+;; people are ready :(
 
 (def state (atom nil))
 
@@ -104,8 +110,13 @@
    :giftAssignments (gift-assignment state name)})
 
 (defroutes app
-  (GET "/" [] (slurp "../front/dist/index.html"))
-  (GET "/main.js" [] (slurp "../front/dist/main.js"))
+  (GET "/" []
+    (io/resource "index.html"))
+  (GET "/gift.svg" []
+    (do (println "Someone wants a gift")
+        (io/resource "gift.png")))
+  (GET "/main.js" []
+    (io/resource "main.js"))
   (GET "/names" []
     (json/generate-string
       (client-state @state nil)))

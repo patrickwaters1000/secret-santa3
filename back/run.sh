@@ -1,0 +1,12 @@
+lein run -m secret-santa3.core \
+     -n Patrick \
+     -n Allen \
+     -n Ben \
+     -n Bonnie \
+     -n Tom \
+     -n Essie \
+     -n Carley \
+     -g 2 \
+     -i Bonnie,Tom \
+     -i Allen,Essie \
+     -i Ben,Carley

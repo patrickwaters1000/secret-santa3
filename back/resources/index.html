@@ -1,0 +1,147 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Secret Santa 3</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=OpenSans">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Allison">
+    <style>
+
+      /* RESPONSIVE */
+      @media only screen and (min-width: 450px) {
+        .bodyContainer {max-width: 400px;}
+      }
+
+      @media only screen and (min-width: 600px) {
+        .bodyContainer {max-width: 550px;}
+      }
+
+      /* Medium devices (landscape tablets, 768px and up) */
+      @media only screen and (min-width: 768px) {
+        .bodyContainer {max-width: 710px;}
+      }
+
+      /* Large devices (laptops/desktops, 992px and up) */
+      @media only screen and (min-width: 992px) {
+        .bodyContainer {max-width: 900px;}
+      }
+
+      /* STYLE */
+      body {
+        max-width:2000px;
+        /*font-size: 12px;*/
+        font-family:Open Sans,sans-serif;
+        margin:auto;
+        text-align:center;
+      }
+
+      .bodyContainer {
+        margin-top:20px;
+        padding-left: 50px;
+      }
+
+      .pageTitle{
+        font-family: Allison, cursive;
+        margin: auto;
+        width: 100%;
+        margin-bottom: 10px;
+        font-size: 3em;
+        display:inline;
+        text-align: center;
+      }
+
+      .pageTitle img{
+        vertical-align:sub;
+        width:50px;
+      }
+
+      .titleHeader {
+        color:#BE3A34;
+        font-family: Allison, cursive;
+        font-size: 3em;
+        text-align:left;
+      }
+      .giftAssignment {
+        color:#3c8d0d;
+        text-align:left;
+      }
+      .personReady {
+        color:#3c8d0d;
+        text-align:left;
+        margin-left:10px;
+        font-weight:400;
+        font-style:italic;
+      }
+
+      .giftAssignment img{
+        width:45px;
+        margin-top:0px;
+        margin-bottom:-15px;
+        margin-right:10px;
+      }
+
+      button {
+        max-width:100px;
+        min-width:100px;
+        background-color:#EF635C;
+        color:white;
+        font-weight:700;
+        height:40px;
+        margin:5px;
+        border:none;
+      }
+
+      .unclickableNameButton {
+        visibility:hidden;
+      }
+
+      .box{
+        padding: 30px;
+        padding-top:0px
+      }
+
+      .footerImages img{
+        margin:5px;
+        width:100px;
+      }
+
+    </style>
+    <script src="main.js"></script>
+  </head>
+  <body class="bodyContainer">
+    <h1 class="pageTitle"><img src="https://cdn-icons-png.flaticon.com/512/2303/2303337.png"> Waters Family Christmas Gift Exchange 2023
+    </h1>
+    <hr/>
+    <div class="box">
+      <div id="main">
+      </div>
+
+      <!-- TEST CONTENT -->
+      <!--
+          <h1 class="titleHeader">Who are you?</h1>
+          <div>
+            <button>Patrick</button>
+            <button>Bonnie</button>
+            <button>Tom</button>
+            <button>Allen</button>
+            <button>Essie</button>
+            <button>Ben</button>
+            <button>Carley</button>
+          </div>
+          <h1 class="titleHeader">Assignments</h1>
+          <h2 class="giftAssignment"><img src="./gift-svgrepo-com.svg">Allen</h2>
+          <h2 class="giftAssignment"><img src="./gift-svgrepo-com.svg">Patrick</h2>
+          -->
+          <hr/>
+          <div class="footerImages">
+            <img src="https://media.tenor.com/Ln2hLu3QVLEAAAAi/christmas-xmas.gif">
+            <img src="https://media.tenor.com/R5e-lMOrczcAAAAi/kstr-kochstrasse.gif">
+            <img src="https://media.tenor.com/HXnAUtJzbyAAAAAi/cat-christmas.gif">
+            <img src="https://media.tenor.com/NnGFuNXTeVwAAAAi/christmas-xmas.gif">
+            <img src="https://media.tenor.com/-cyCXLhWsLMAAAAi/dance-dancing.gif">
+            <img src="https://media.tenor.com/YZwSPBz3Bg0AAAAi/christmas-xmas.gif">
+            <!--      <img src="https://media.tenor.com/kozTCxiRnEMAAAAi/cat-christmas.gif" width=100px> -->
+            <!--      <img src="https://media.tenor.com/swiPRnDN_8gAAAAi/christmas-xmas.gif" width=100px> -->
+          </div>
+    </div>
+  </body>
+</html>

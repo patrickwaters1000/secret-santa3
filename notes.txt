@@ -1,0 +1,91 @@
+2023-11-24
+
+Trying to build and deploy
+
+1. Building and running a jar
+
+Use `lein uberjar` to build a jar.
+Wanted to choose the jar name.
+Set :project :uberjar :jar-name in project.clj.
+But it builds two jars, and the one with the custom name doesn't work.
+Someone explained on stack overflow that it doesn't contain Clojure.
+OK, so we won't set the jar name.
+
+Use `java -jar target/uberjar/secret-santa3-0.1.0-SNAPSHOT-standalone.jar`
+to run the jar.
+Made this part of the dev.sh script
+It wasn't loading the javascript.
+Well, core.clj is using relative paths to locate the front end code, so I'm
+surprised it works at all.
+Updated the dev script to move the built javascript to back/resources.
+Moved index.html to back/resources.
+Updated core.clj to use io/resource instead of relative paths.
+Seems to be working now.
+
+2. Provisioning an AWS EC2 instance
+
+Password in 1Password was out of date.
+Tried to reset it, but couldn't pass the captcha thing.
+Clicked a button for an audio captcha instead, which was easier.
+After resetting the password they wanted me to pass a captcha just to log in.
+That momentarilly confused me, and I was refreshing my tab to make it go away.
+But actually I just had to do the captcha.
+Updated 1Password.
+
+Logging in took me to AWS Marketplace
+(https://aws.amazon.com/mp/marketplace-service/overview/)
+which did not have any obvious button for EC2.
+Ah, but there is a "sign in to the console" button in the upper right part of
+the screen; clicked that.
+Clicked EC2.
+Clicked "launch instance"
+Clicked "my AMIs"
+Surprisingly there is "Secret Santa3 Server" saved
+In the "key pair", "secret-santa-key-pair" was not clearly visible but appeared
+when I searched for it.
+"Create security group" is selected.
+Clicked boxes to allow HTTP and HTTPS traffic
+Clicked "launch instance".
+Got to a screen with several rectangular buttons.
+Clicked a rectangular button "connect to instance".
+Got to a page with 4 tabs for different ways to connect.
+In the "ssh client" tab, there is a shell command
+ssh -i "secret-santa-key-pair.pem" root@ec2-3-137-186-45.us-east-2.compute.amazonaws.com
+but it doesn't work.
+Had to change "root" to "ubuntu", then it worked.
+
+3. Deploying and running the server.
+
+Started running commands from deploy.sh, e.g., `sudo apt update`.
+Got a weird full screen dialog box when running `sudo apt upgrade -y`.
+It wanted to know what services to restart.
+I had no idea what it was talking about, but pressed enter a few times and it went away.
+Copied the jar onto the server.
+Tried to run the jar.
+It printed "Ready!" to the terminal, but then crashed with
+"Exception in thread "main" java.net.SocketException: Permission denied"
+I think the operating system is not allowing the server to connect to a port or something.
+Oops, you have to run the command with sudo.
+Good thing I had Lindsay here to help with that.
+Run the server with
+sudo java -jar app.jar \
+     -n Allen \
+     -n Ben \
+     -n Bonnie \
+     -n Carley \
+     -n Essie \
+     -n Patrick \
+     -n Tom \
+     -g 2 \
+     -i Tom,Bonnie \
+     -i Allen,Essie \
+     -i Ben,Carley
+
+4. Connecting to the server
+
+Point your browser to
+http://ec2-3-137-186-45.us-east-2.compute.amazonaws.com:443
+
+5. Shut down the server
+
+Or else Amazon will take your $$.

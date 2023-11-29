@@ -1,23 +1,46 @@
 (ns secret-santa3.core
   (:require
     [cheshire.core :as json]
+    [clj-time.core :as t]
+    [clojure.core.async :as a]
     [clojure.java.io :as io]
-    [clojure.set :refer [subset? intersection]]
+    [clojure.set :refer [subset?]]
     [clojure.string :as string]
     [compojure.core :refer :all]
     [org.httpkit.server :refer [run-server]]
     [ring.middleware.params :as rmp]
-    [ring.util.response :as response])
+    [ring.util.response :as response]
+    [secret-santa3.assign-gifts :as g])
+  (:import
+    (org.joda.time DateTime))
   (:gen-class))
 
-;; Refreshing the page after clicking that you are ready lets you claim to be
-;; two people. One person sees their gift assignments and the other sees both
-;; people are ready :(
+(defrecord UserInfo
+  [^String user-name ;; Can be null
+   ^DateTime last-seen])
+
+(defrecord AppState
+  [names ;; List of strings. The people participating in the gift exchange.
+   gifts ;; How many gifts each person will be assigned to give.
+   incompatible-pairs ;; List of list of strings. Pairs of names that will not
+   ;; be assigned to give gifts to each other.
+   max-retries ;; Maximum attempts to calculate gift assignments.
+   max-latency-millis ;; Maximum number of milliseconds between polls for
+   ;; a user to remain connected.
+   token->user-info ;; Users that are currently connected to the app.
+   gift-assignments ;; Map of strings to list of strings. An assignment of
+   ;; which users each user will give gifts to.
+   ])
 
 (def state (atom nil))
 
+(defn- check-incompatible-pairs [state]
+  (and (every? #(= 2 (count %)) (:incompatible-pairs state))
+       (every? #(subset? % (:names state)) (:incompatible-pairs state))))
+
 (defn- parse-args [args]
-  {:pre [(even? (count args))]}
+  {:pre [(even? (count args))]
+   :post [(check-incompatible-pairs %)]}
   (reduce (fn [acc [k-arg v-arg]]
             (case k-arg
               "-n" (update acc :names conj v-arg)
@@ -29,85 +52,80 @@
            :max-retries 1000}
           (partition 2 args)))
 
-(defn- check-incompatible-pairs [state]
-  (and (every? #(= 2 (count %)) (:incompatible-pairs state))
-       (every? #(subset? % (:names state)) (:incompatible-pairs state))))
-
 (defn- initial-state [args]
-  {:post [(check-incompatible-pairs %)]}
   (-> (parse-args args)
-      (assoc :ready #{}
+      (map->AppState)
+      (assoc :token->user-info {}
              :gift-assignments nil)))
 
-(defn- all-ready? [state]
-  (println (format "Names = %s, ready = %s"
-                   (:names state)
-                   (:ready state)))
-  (= (set (:names state))
-     (set (:ready state))))
+(defn- assign-gifts-if-everyone-is-connected [state]
+  (if (= (set (:names state))
+         (set (->> (:token->user-info state)
+                   (vals)
+                   (map :user-name)
+                   (set))))
+    (g/assign-gifts state)
+    state))
 
-(defn- giving-to-self? [[k vs]]
-  (contains? (set vs) k))
+(defn- issue-token! [state]
+  (let [token (rand-int Integer/MAX_VALUE)
+        user-info (map->UserInfo
+                    {:last-seen (t/now)})]
+    (println (format "Issuing token %d to new user." token))
+    (swap! state assoc-in [:token->user-info token] user-info)
+    token))
 
-(defn- giving-to-anyone-twice? [[_ vs]]
-  (< (count (set vs))
-     (count vs)))
+(defn- identify [state token user-name]
+  {:pre [(instance? AppState state)
+         (integer? token)
+         (string? user-name)
+         (not (empty? user-name))]}
+  (let [user-info (get (:token->user-info state) token)]
+    (cond
+      (nil? user-info)
+        (do (println (format "User with invalid token %d claimed to be %s."
+                             token
+                             user-name))
+            state)
+      (some? (:user-name user-info))
+        (do (println (format "%s is now claiming to be %s."
+                             (:user-name user-info)
+                             user-name))
+            state)
+      :else
+        (do (println (format "User with token %d identifies as %s."
+                             token
+                             user-name))
+            (-> state
+                (update-in [:token->user-info token]
+                  assoc
+                  :user-name user-name
+                  :last-seen (t/now))
+                assign-gifts-if-everyone-is-connected)))))
 
-(defn- everyone-gets-same-number-of-gifts? [gift-assignments]
-  (->> gift-assignments
-       (mapcat (comp vec val))
-       frequencies
-       vals
-       (apply =)))
+(defn- poll [state token]
+  (let [user-info (get (:token->user-info state) token)]
+    (if (nil? user-info)
+      (do (println (format "Got poll with unrecognized token %d." token))
+          state)
+      (update-in state
+        [:token->user-info token]
+        assoc
+        :last-seen (t/now)))))
 
-(defn- incompatible-assignment? [incompatible-pairs [k vs]]
-  (not (empty? (intersection incompatible-pairs
-                             (set (for [v vs] (hash-set k v)))))))
-
-(defn- valid-gifts-assignment? [state a]
-  (let [i (:incompatible-pairs state)]
-    (and (every? (comp not giving-to-self?) a)
-         (every? (comp not giving-to-anyone-twice?) a)
-         (every? (comp not (partial incompatible-assignment? i)) a)
-         (everyone-gets-same-number-of-gifts? a))))
-
-(defn- assign-one-round-of-gifts [names]
-  (zipmap names (->> names (map vector) shuffle)))
-
-(defn- try-assigning-gifts [gifts names]
-  (->> (repeatedly #(assign-one-round-of-gifts names))
-       (take gifts)
-       (reduce (partial merge-with into))))
-
-(defn- assign-gifts [state]
-  (let [{:keys [gifts
-                names
-                max-retries]} state]
-    (loop [retries max-retries]
-      (let [candidate (try-assigning-gifts gifts names)]
-        (cond
-          (valid-gifts-assignment? state candidate)
-            (assoc state :gift-assignments candidate)
-          (zero? retries)
-            (throw (Exception. "Retries exhausted"))
-          :else
-            (recur (dec retries)))))))
-
-(defn- set-ready [state-1 n]
-  (let [state-2 (update state-1 :ready conj n)]
-    (if (all-ready? state-2)
-      (assign-gifts state-2)
-      state-2)))
-
-(defn- gift-assignment [state name]
-  (when-let [ga (:gift-assignments state)]
-    (get ga name)))
-
-(defn- client-state [state name]
-  {:name name
-   :names (:names state)
-   :ready (:ready state)
-   :giftAssignments (gift-assignment state name)})
+(defn- client-view [state token]
+  (let [{:keys [gift-assignments
+                token->user-info]} state
+        user-name (get-in token->user-info [token :user-name])]
+    (if (nil? user-name)
+      (println (format (str "Failed to make client view for because token %d is "
+                            "not recognized.")
+                       token))
+      {:everyone (:user-names state)
+       :connected (->> (:token->user-info state)
+                       (map :user-name)
+                       (remove nil?))
+       :giftAssignments (get gift-assignments user-name)})))
 
 (defroutes app
   (GET "/" []
@@ -117,22 +135,42 @@
         (io/resource "gift.png")))
   (GET "/main.js" []
     (io/resource "main.js"))
-  (GET "/names" []
-    (json/generate-string
-      (client-state @state nil)))
-  (POST "/ready" {body :body}
-    (let [n (json/parse-string (slurp body))]
-      (println n " is ready")
-      (swap! state set-ready n)
+  (GET "/token" []
+    (issue-token! state))
+  (POST "/identify" {body :body}
+    (let [{:keys [token
+                  user-name]} (json/parse-string (slurp body))
+          new-state (swap! state identify user-name)]
       (json/generate-string
-        (client-state @state n))))
+        (client-view new-state token))))
   (POST "/poll" {body :body}
-    (let [n (json/parse-string (slurp body))]
+    (let [{:keys [token]} (json/parse-string (slurp body))
+          new-state (swap! state poll token)]
       (json/generate-string
-        (client-state @state n)))))
+        (client-view new-state token)))))
+
+(defn- disconnect-unresponsive-users [state]
+  (let [{:keys [max-latency-millis]} state
+        now (t/now)]
+    (update state
+      :token->user-info
+      (fn [token->user-info]
+        (reduce-kv (fn [m token user-info]
+                     (if (< (t/in-millis
+                              (t/interval (:last-seen user-info)
+                                          now))
+                            max-latency-millis)
+                       (assoc m token (assoc user-info :last-seen now))
+                       m))
+                   {}
+                   token->user-info)))))
 
 (defn -main [& args]
   (reset! state (initial-state args))
   (println "Ready!")
+  (a/go-loop []
+    (swap! state disconnect-unresponsive-users)
+    (Thread/sleep 100)
+    (recur))
   (run-server (rmp/wrap-params app)
               {:port 443}))

@@ -4,6 +4,7 @@
   :license {:name "EPL-2.0 OR GPL-2.0-or-later WITH Classpath-exception-2.0"
             :url "https://www.eclipse.org/legal/epl-2.0/"}
   :dependencies [[org.clojure/clojure "1.10.0"]
+                 [org.clojure/core.async "1.5.648"]
                  [cheshire "5.10.0"]
                  [jakarta.xml.bind/jakarta.xml.bind-api "2.3.2"] ;; Apparently required for http-kit
                  [org.glassfish.jaxb/jaxb-runtime "2.3.2"] ;; Apparently required for http-kit
@@ -15,5 +16,4 @@
   :repositories [["jitpack" "https://jitpack.io"]]
   :main ^:skip-aot secret-santa3.core
   :target-path "target/%s"
-  :profiles {:uberjar {:aot :all
-                       :jar-name "SecretSanta3.jar"}})
+  :profiles {:uberjar {:aot :all}})

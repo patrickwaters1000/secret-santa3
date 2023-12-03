@@ -1,27 +1,69 @@
 import React, { Component } from "react";
 import ReactDOM from "react-dom";
-//import GiftImg from './gift.svg';
 
 var handle = null;
 
-var state = null;
+var state = {
+    token: null,
+    everyone: [],
+    connected: [],
+    giftAssignments: null,
+};
 
-const event = (route, body) => {
-    fetch(route, {
+const getToken = () => {
+    fetch("token", {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json;charset=utf-8' },
-        body: JSON.stringify(body)
+        headers: { 'Content-Type': 'application/json;charset=utf-8' }
     }).then(resp => {
         return resp.json();
-    }).then(newState => {
-        handle.setState(newState);
+    }).then(data => {
+        state.token = data.token;
+        handle.setState(state);
+        console.log(`Got token ${data.token}. New state = ${JSON.stringify(state)}`);
+    });
+
+};
+
+const identify = (username) => {
+    fetch("identify", {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json;charset=utf-8' },
+        body: JSON.stringify({
+            token: state.token,
+            username: username
+        })
+    }).then(resp => {
+        return resp.json();
+    }).then(data => {
+        state.everyone = data.everyone;
+        state.connected = data.connected;
+        state.giftAssignments = data.giftAssignments;
+        handle.setState(state);
+    });
+};
+
+const poll = () => {
+    console.log(`Polling. State = ${JSON.stringify(state)}`);
+    fetch("poll", {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json;charset=utf-8' },
+        body: JSON.stringify({
+            token: state.token
+        })
+    }).then(resp => {
+        return resp.json();
+    }).then(data => {
+        state.everyone = data.everyone;
+        state.connected = data.connected;
+        state.giftAssignments = data.giftAssignments;
+        handle.setState(state);
     });
 };
 
 const NameButton = (name, clickable) => {
     let onClick;
     if (clickable) {
-        onClick = () => { event("ready", name); };
+        onClick = () => { identify(name); };
     } else {
         onClick = () => {};
     }
@@ -36,11 +78,11 @@ const NameButton = (name, clickable) => {
 };
 
 const NameButtons = (state) => {
-    let { name, names, ready } = state;
-    if (name) {
+    let { everyone, connected } = state;
+    /*if (name) {
         return [];
-    }
-    let buttons = names.map( n => NameButton(n, !ready.includes(n)));
+    }*/
+    let buttons = everyone.map( n => NameButton(n, !connected.includes(n)));
     return [React.createElement(
         "div",
         {},
@@ -56,11 +98,11 @@ const NameButtons = (state) => {
 };
 
 const ReadyUsers = (state) => {
-    let { ready, giftAssignments } = state;
+    let { connected, giftAssignments } = state;
     if (giftAssignments) {
         return [];
     }
-    let lines = ready.map(name => React.createElement(
+    let lines = connected.map(name => React.createElement(
         "h2",
         {
             className: "personReady",
@@ -87,7 +129,7 @@ const GiftAssignments = (state) => {
         React.createElement(
             "img",
             {
-                src: "./gift.svg",//GiftImg,
+                src: "./gift.svg",
             },
         ),
         name,
@@ -134,9 +176,6 @@ window.addEventListener("DOMContentLoaded", () => {
         giftAssignments: null,
     });
     ReactDOM.render(page, div);
-    event("poll", null);
-    setInterval(
-        () => { event('poll', handle.state.name); },
-        1000
-    );
+    getToken();
+    setInterval(poll, 1000);
 });

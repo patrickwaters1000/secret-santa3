@@ -46,10 +46,12 @@
               "-n" (update acc :names conj v-arg)
               "-g" (assoc acc :gifts (Integer/parseInt v-arg))
               "-i" (update acc :incompatible-pairs conj (set (string/split v-arg #",")))
-              "-r" (assoc acc :max-retries (Integer/parseInt v-arg))))
+              "-r" (assoc acc :max-retries (Integer/parseInt v-arg))
+              "-l" (assoc acc :max-latency-millis (Integer/parseInt v-arg))))
           {:names #{}
            :incompatible-pairs #{}
-           :max-retries 1000}
+           :max-retries 1000
+           :max-latency-millis 2500}
           (partition 2 args)))
 
 (defn- initial-state [args]
@@ -73,7 +75,7 @@
                     {:last-seen (t/now)})]
     (println (format "Issuing token %d to new user." token))
     (swap! state assoc-in [:token->user-info token] user-info)
-    token))
+    {:token token}))
 
 (defn- identify [state token user-name]
   {:pre [(instance? AppState state)
@@ -117,15 +119,19 @@
   (let [{:keys [gift-assignments
                 token->user-info]} state
         user-name (get-in token->user-info [token :user-name])]
-    (if (nil? user-name)
-      (println (format (str "Failed to make client view for because token %d is "
-                            "not recognized.")
-                       token))
-      {:everyone (:user-names state)
-       :connected (->> (:token->user-info state)
-                       (map :user-name)
-                       (remove nil?))
-       :giftAssignments (get gift-assignments user-name)})))
+    (when (and gift-assignments
+               (nil? user-name))
+      (println
+        (format (str "Cannot send gift assignments because there is no username "
+                     "associated with token %d.")
+                token)))
+    {:everyone (:names state)
+     :connected (->> (:token->user-info state)
+                     (vals)
+                     (map :user-name)
+                     (remove nil?)
+                     (sort))
+     :giftAssignments (get gift-assignments user-name)}))
 
 (defroutes app
   (GET "/" []
@@ -135,16 +141,23 @@
         (io/resource "gift.png")))
   (GET "/main.js" []
     (io/resource "main.js"))
-  (GET "/token" []
-    (issue-token! state))
+  (POST "/token" []
+    (json/generate-string
+      (issue-token! state)))
   (POST "/identify" {body :body}
-    (let [{:keys [token
-                  user-name]} (json/parse-string (slurp body))
-          new-state (swap! state identify user-name)]
+    (let [data (json/parse-string (slurp body))
+          token (get data "token")
+          username (get data "username")
+          _ (println (format "/identify with data = %s" data))
+          new-state (swap! state identify token username)
+          ;;token (when token (Integer/parseInt token))
+          ]
       (json/generate-string
         (client-view new-state token))))
   (POST "/poll" {body :body}
     (let [{:keys [token]} (json/parse-string (slurp body))
+          token (when token
+                  (Integer/parseInt token))
           new-state (swap! state poll token)]
       (json/generate-string
         (client-view new-state token)))))

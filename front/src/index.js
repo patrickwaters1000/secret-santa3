@@ -5,6 +5,7 @@ var handle = null;
 
 var state = {
     token: null,
+    username: null,
     everyone: [],
     connected: [],
     giftAssignments: null,
@@ -37,6 +38,7 @@ const identify = (username) => {
     }).then(data => {
         state.everyone = data.everyone;
         state.connected = data.connected;
+        state.username = data.username;
         state.giftAssignments = data.giftAssignments;
         handle.setState(state);
     });
@@ -55,8 +57,10 @@ const poll = () => {
     }).then(data => {
         state.everyone = data.everyone;
         state.connected = data.connected;
+        state.username = data.username;
         state.giftAssignments = data.giftAssignments;
         handle.setState(state);
+        setTimeout(poll, 1000);
     });
 };
 
@@ -78,10 +82,10 @@ const NameButton = (name, clickable) => {
 };
 
 const NameButtons = (state) => {
-    let { everyone, connected } = state;
-    /*if (name) {
+    let { username, everyone, connected } = state;
+    if (username) {
         return [];
-    }*/
+    }
     let buttons = everyone.map( n => NameButton(n, !connected.includes(n)));
     return [React.createElement(
         "div",
@@ -177,5 +181,5 @@ window.addEventListener("DOMContentLoaded", () => {
     });
     ReactDOM.render(page, div);
     getToken();
-    setInterval(poll, 1000);
+    poll();
 });

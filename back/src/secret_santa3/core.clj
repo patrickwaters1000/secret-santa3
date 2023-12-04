@@ -107,6 +107,9 @@
 
 (defn- poll [state token]
   (let [user-info (get (:token->user-info state) token)]
+    (println (format "Poll from user %s, token %s"
+                     (:user-name user-info)
+                     token))
     (if (nil? user-info)
       (do (println (format "Got poll with unrecognized token %d." token))
           state)
@@ -125,7 +128,8 @@
         (format (str "Cannot send gift assignments because there is no username "
                      "associated with token %d.")
                 token)))
-    {:everyone (:names state)
+    {:username user-name
+     :everyone (:names state)
      :connected (->> (:token->user-info state)
                      (vals)
                      (map :user-name)
@@ -149,31 +153,30 @@
           token (get data "token")
           username (get data "username")
           _ (println (format "/identify with data = %s" data))
-          new-state (swap! state identify token username)
-          ;;token (when token (Integer/parseInt token))
-          ]
+          new-state (swap! state identify token username)]
       (json/generate-string
         (client-view new-state token))))
   (POST "/poll" {body :body}
-    (let [{:keys [token]} (json/parse-string (slurp body))
-          token (when token
-                  (Integer/parseInt token))
+    (let [data (json/parse-string (slurp body))
+          token (get data "token")
           new-state (swap! state poll token)]
       (json/generate-string
         (client-view new-state token)))))
 
 (defn- disconnect-unresponsive-users [state]
   (let [{:keys [max-latency-millis]} state
-        now (t/now)]
+        now (t/now)
+        seen-user-recently? (fn [user-info]
+                              (< (t/in-millis
+                                   (t/interval (:last-seen user-info)
+                                               now))
+                                 max-latency-millis))]
     (update state
       :token->user-info
       (fn [token->user-info]
         (reduce-kv (fn [m token user-info]
-                     (if (< (t/in-millis
-                              (t/interval (:last-seen user-info)
-                                          now))
-                            max-latency-millis)
-                       (assoc m token (assoc user-info :last-seen now))
+                     (if (seen-user-recently? user-info)
+                       (assoc m token user-info)
                        m))
                    {}
                    token->user-info)))))

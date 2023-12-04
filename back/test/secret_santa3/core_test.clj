@@ -70,7 +70,8 @@
                          :token->user-info {1 (s/map->UserInfo
                                                 {:user-name "patrick"
                                                  :last-seen (t/date-time 2023 12 1)})}}))
-              token (#'s/issue-token! state)]
+              output (#'s/issue-token! state)
+              token (:token output)]
           (is (integer? token))
           (is (string/starts-with? (.toString w) "Issuing token"))
           (is (= 2 (-> @state

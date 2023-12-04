@@ -60,14 +60,12 @@
       (assoc :token->user-info {}
              :gift-assignments nil)))
 
-(defn- assign-gifts-if-everyone-is-connected [state]
-  (if (= (set (:names state))
-         (set (->> (:token->user-info state)
-                   (vals)
-                   (map :user-name)
-                   (set))))
-    (g/assign-gifts state)
-    state))
+(defn- everyone-is-connected? [state]
+  (= (set (:names state))
+     (set (->> (:token->user-info state)
+               (vals)
+               (map :user-name)
+               (set)))))
 
 (defn- issue-token! [state]
   (let [token (rand-int Integer/MAX_VALUE)
@@ -98,12 +96,14 @@
         (do (println (format "User with token %d identifies as %s."
                              token
                              user-name))
-            (-> state
-                (update-in [:token->user-info token]
-                  assoc
-                  :user-name user-name
-                  :last-seen (t/now))
-                assign-gifts-if-everyone-is-connected)))))
+            (as-> state s
+              (update-in s [:token->user-info token]
+                assoc
+                :user-name user-name
+                :last-seen (t/now))
+              (if (everyone-is-connected? s)
+                (g/assign-gifts s)
+                s))))))
 
 (defn- poll [state token]
   (let [user-info (get (:token->user-info state) token)]
